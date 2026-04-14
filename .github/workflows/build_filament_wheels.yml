@@ -80,25 +80,25 @@ jobs:
             tmpdir: "/tmp"
 
           # macOS x86_64
-          - os: macos-15-large
+          - os: macos-13
             label: macos-x86_64
             python-version: "3.10"
             cmake_args: >-
               -G Ninja
             tmpdir: "/tmp"
-          - os: macos-15-large
+          - os: macos-13
             label: macos-x86_64
             python-version: "3.11"
             cmake_args: >-
               -G Ninja
             tmpdir: "/tmp"
-          - os: macos-15-large
+          - os: macos-13
             label: macos-x86_64
             python-version: "3.12"
             cmake_args: >-
               -G Ninja
             tmpdir: "/tmp"
-          - os: macos-15-large
+          - os: macos-13
             label: macos-x86_64
             python-version: "3.13"
             cmake_args: >-
@@ -167,34 +167,29 @@ jobs:
       shell: bash
       env:
         TMPDIR: ${{ matrix.tmpdir }}
-      run: |
-        repo="${PWD}"
-        pushd "${TMPDIR}" > /dev/null
-        python -m venv venv
-        if [[ "$RUNNER_OS" == "Windows" ]]; then
-          mkdir -p venv/bin
-          fixpath="$(s="$(cat venv/Scripts/activate | grep VIRTUAL_ENV=)"; echo "${s:13:-1}")"
-          sed -i "s#$(printf "%q" "${fixpath}")#$(cygpath "${fixpath}")#g" venv/Scripts/activate
-          ln -s ../Scripts/activate venv/bin/activate
-        fi
-        source venv/bin/activate
-        python -m pip install --upgrade --require-hashes -r "${repo}/python/build_requirements.txt"
-        popd > /dev/null
+      run: bash ./.github/workflows/build_steps.sh prepare_python
 
-    # Build core MuJoCo with filament support
+    # Build core MuJoCo with filament support (mirrors configure_studio flags
+    # which properly pull in SDL2 via the platform target)
     - name: Configure MuJoCo (with filament)
       shell: bash
       env:
         TMPDIR: ${{ matrix.tmpdir }}
         CMAKE_ARGS: ${{ matrix.cmake_args }}
       run: |
-        mkdir build && cd build
-        cmake .. \
+        cmake -B build \
           -DCMAKE_BUILD_TYPE:STRING=Release \
           -DCMAKE_INTERPROCEDURAL_OPTIMIZATION:BOOL=OFF \
           -DCMAKE_INSTALL_PREFIX:STRING=${TMPDIR}/mujoco_install \
-          -DMUJOCO_BUILD_EXAMPLES:BOOL=OFF \
-          -DMUJOCO_USE_FILAMENT:BOOL=ON \
+          -DUSE_STATIC_LIBCXX=OFF \
+          -DBUILD_SHARED_LIBS=OFF \
+          -DMUJOCO_BUILD_EXAMPLES=OFF \
+          -DMUJOCO_BUILD_SIMULATE=OFF \
+          -DMUJOCO_BUILD_STUDIO=ON \
+          -DMUJOCO_BUILD_TESTS=OFF \
+          -DMUJOCO_TEST_PYTHON_UTIL=OFF \
+          -DMUJOCO_WITH_USD=OFF \
+          -DMUJOCO_USE_FILAMENT=ON \
           ${CMAKE_ARGS}
 
     - name: Build MuJoCo
@@ -218,7 +213,7 @@ jobs:
     - name: Install MuJoCo
       shell: bash
       working-directory: build
-      run: cmake --install .
+      run: cmake --install . --config=Release
 
     - name: Copy plugins (POSIX)
       if: runner.os != 'Windows'
@@ -250,9 +245,7 @@ jobs:
       working-directory: python
       env:
         TMPDIR: ${{ matrix.tmpdir }}
-      run: |
-        source ${TMPDIR}/venv/bin/activate
-        ./make_sdist.sh
+      run: bash ../.github/workflows/build_steps.sh make_python_sdist
 
     - name: Build Python wheel
       shell: bash
@@ -264,7 +257,7 @@ jobs:
         source ${TMPDIR}/venv/bin/activate
         MUJOCO_PATH="${TMPDIR}/mujoco_install" \
         MUJOCO_PLUGIN_PATH="${TMPDIR}/mujoco_install/mujoco_plugin" \
-        MUJOCO_CMAKE_ARGS="-DCMAKE_INTERPROCEDURAL_OPTIMIZATION:BOOL=OFF -DMUJOCO_USE_FILAMENT:BOOL=ON ${CMAKE_ARGS}" \
+        MUJOCO_CMAKE_ARGS="-DCMAKE_INTERPROCEDURAL_OPTIMIZATION:BOOL=OFF ${CMAKE_ARGS}" \
         pip wheel -v --no-deps mujoco-*.tar.gz
 
     - name: Repair wheel (Linux)
