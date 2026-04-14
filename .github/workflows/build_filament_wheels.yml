@@ -79,32 +79,6 @@ jobs:
               -G Ninja
             tmpdir: "/tmp"
 
-          # macOS x86_64
-          - os: macos-13
-            label: macos-x86_64
-            python-version: "3.10"
-            cmake_args: >-
-              -G Ninja
-            tmpdir: "/tmp"
-          - os: macos-13
-            label: macos-x86_64
-            python-version: "3.11"
-            cmake_args: >-
-              -G Ninja
-            tmpdir: "/tmp"
-          - os: macos-13
-            label: macos-x86_64
-            python-version: "3.12"
-            cmake_args: >-
-              -G Ninja
-            tmpdir: "/tmp"
-          - os: macos-13
-            label: macos-x86_64
-            python-version: "3.13"
-            cmake_args: >-
-              -G Ninja
-            tmpdir: "/tmp"
-
           # Windows
           - os: windows-2025
             label: windows-x86_64
@@ -163,11 +137,24 @@ jobs:
       with:
         python-version: "${{ matrix.python-version }}"
 
-    - name: Prepare Python
+    - name: Prepare Python (POSIX)
+      if: runner.os != 'Windows'
       shell: bash
       env:
         TMPDIR: ${{ matrix.tmpdir }}
       run: bash ./.github/workflows/build_steps.sh prepare_python
+
+    - name: Prepare Python (Windows)
+      if: runner.os == 'Windows'
+      shell: bash
+      env:
+        TMPDIR: ${{ matrix.tmpdir }}
+      run: |
+        repo="${PWD}"
+        cd "$(cygpath "${TMPDIR}")"
+        python -m venv venv
+        source venv/Scripts/activate
+        python -m pip install --upgrade --require-hashes -r "${repo}/python/build_requirements.txt"
 
     # Build core MuJoCo with filament support (mirrors configure_studio flags
     # which properly pull in SDL2 via the platform target)
@@ -245,7 +232,13 @@ jobs:
       working-directory: python
       env:
         TMPDIR: ${{ matrix.tmpdir }}
-      run: bash ../.github/workflows/build_steps.sh make_python_sdist
+      run: |
+        if [[ "$RUNNER_OS" == "Windows" ]]; then
+          source "$(cygpath "${TMPDIR}")/venv/Scripts/activate"
+        else
+          source ${TMPDIR}/venv/bin/activate
+        fi
+        ./make_sdist.sh
 
     - name: Build Python wheel
       shell: bash
@@ -254,7 +247,11 @@ jobs:
         TMPDIR: ${{ matrix.tmpdir }}
         CMAKE_ARGS: ${{ matrix.cmake_args }}
       run: |
-        source ${TMPDIR}/venv/bin/activate
+        if [[ "$RUNNER_OS" == "Windows" ]]; then
+          source "$(cygpath "${TMPDIR}")/venv/Scripts/activate"
+        else
+          source ${TMPDIR}/venv/bin/activate
+        fi
         MUJOCO_PATH="${TMPDIR}/mujoco_install" \
         MUJOCO_PLUGIN_PATH="${TMPDIR}/mujoco_install/mujoco_plugin" \
         MUJOCO_CMAKE_ARGS="-DCMAKE_INTERPROCEDURAL_OPTIMIZATION:BOOL=OFF ${CMAKE_ARGS}" \
@@ -341,7 +338,6 @@ jobs:
           ## Platforms
           - Linux x86_64 (Ubuntu 24.04)
           - macOS arm64
-          - macOS x86_64
           - Windows x86_64
 
           ## Python versions
