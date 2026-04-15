@@ -33,6 +33,38 @@ python -m pip install --upgrade --require-hashes \
 pushd ${tmp_dir}
 cp -r "${package_dir}"/* .
 
+copy_filament_assets() {
+  local candidate_dirs=()
+
+  if [[ -n "${MUJOCO_PATH:-}" ]]; then
+    candidate_dirs+=("${MUJOCO_PATH}/lib/assets")
+    candidate_dirs+=("${MUJOCO_PATH}/bin/assets")
+    candidate_dirs+=("${MUJOCO_PATH}/assets")
+  fi
+
+  candidate_dirs+=("${package_dir}/mujoco/assets")
+  candidate_dirs+=("${package_dir}/../build/bin/assets")
+  candidate_dirs+=("${package_dir}/../build/src/experimental/filament/assets")
+
+  local filament_assets_dir=""
+  for candidate in "${candidate_dirs[@]}"; do
+    if [[ -f "${candidate}/pbr.filamat" ]]; then
+      filament_assets_dir="${candidate}"
+      break
+    fi
+  done
+
+  if [[ -z "${filament_assets_dir}" ]]; then
+    return 0
+  fi
+
+  mkdir -p mujoco/assets
+  cp "${filament_assets_dir}"/*.filamat mujoco/assets/
+  cp "${filament_assets_dir}"/ibl.ktx mujoco/assets/
+}
+
+copy_filament_assets
+
 # Generate header files.
 old_pythonpath="${PYTHONPATH}"
 if [[ "$(uname)" == CYGWIN* || "$(uname)" == MINGW* ]]; then

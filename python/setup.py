@@ -17,6 +17,7 @@
 import fnmatch
 import logging
 import os
+import pathlib
 import platform
 import random
 import re
@@ -34,6 +35,8 @@ MUJOCO_CMAKE = 'MUJOCO_CMAKE'
 MUJOCO_CMAKE_ARGS = 'MUJOCO_CMAKE_ARGS'
 MUJOCO_PATH = 'MUJOCO_PATH'
 MUJOCO_PLUGIN_PATH = 'MUJOCO_PLUGIN_PATH'
+FILAMENT_ASSET_PATTERNS = ('*.filamat', '*.ktx')
+FILAMENT_SENTINEL_ASSET = 'pbr.filamat'
 
 EXT_PREFIX = 'mujoco.'
 
@@ -158,6 +161,7 @@ class BuildCMakeExtension(build_ext.build_ext):
       assert '.' not in ext.name[len(EXT_PREFIX) :]
       self.build_extension(ext)
     self._copy_external_libraries()
+    self._copy_filament_assets()
     self._copy_mujoco_headers()
     self._copy_plugin_libraries()
     if self._is_apple:
@@ -197,6 +201,60 @@ class BuildCMakeExtension(build_ext.build_ext):
           shutil.copyfile(
               os.path.join(directory, filename), os.path.join(dst, filename)
           )
+
+  def _find_filament_assets_dir(self):
+    candidate_dirs = []
+
+    mujoco_source_assets = os.path.join(
+        os.path.dirname(__file__), 'mujoco', 'assets'
+    )
+    candidate_dirs.append(mujoco_source_assets)
+
+    mujoco_path = os.environ.get(MUJOCO_PATH)
+    if mujoco_path:
+      candidate_dirs.extend([
+          os.path.join(mujoco_path, 'lib', 'assets'),
+          os.path.join(mujoco_path, 'bin', 'assets'),
+          os.path.join(mujoco_path, 'assets'),
+      ])
+
+    for directory, _, filenames in os.walk(self.build_temp):
+      if FILAMENT_SENTINEL_ASSET in filenames:
+        candidate_dirs.append(directory)
+
+    seen = set()
+    for directory in candidate_dirs:
+      if not directory:
+        continue
+      directory = os.path.normpath(directory)
+      if directory in seen or not os.path.isdir(directory):
+        continue
+      seen.add(directory)
+      if os.path.isfile(os.path.join(directory, FILAMENT_SENTINEL_ASSET)):
+        return directory
+
+    if mujoco_path:
+      for directory, _, filenames in os.walk(mujoco_path):
+        if FILAMENT_SENTINEL_ASSET in filenames:
+          return directory
+
+    return None
+
+  def _copy_filament_assets(self):
+    dst = os.path.join(
+        os.path.dirname(self.get_ext_fullpath(self.extensions[0].name)),
+        'assets',
+    )
+
+    filament_assets_dir = self._find_filament_assets_dir()
+    if filament_assets_dir is None:
+      return
+
+    os.makedirs(dst, exist_ok=True)
+    for pattern in FILAMENT_ASSET_PATTERNS:
+      for asset in pathlib.Path(filament_assets_dir).glob(pattern):
+        if asset.is_file():
+          shutil.copyfile(asset, os.path.join(dst, asset.name))
 
   def _copy_plugin_libraries(self):
     dst = os.path.join(

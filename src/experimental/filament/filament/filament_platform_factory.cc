@@ -14,7 +14,11 @@
 
 #include "experimental/filament/filament/filament_platform_factory.h"
 
+#include <algorithm>
+#include <cctype>
+#include <cstdlib>
 #include <memory>
+#include <string>
 
 #include <backend/Platform.h>
 #include <filament/Engine.h>
@@ -22,6 +26,25 @@
 #include "experimental/filament/render_context_filament.h"
 
 namespace mujoco {
+
+static bool PreferOpenGlFromEnv() {
+#if defined(__linux__) && !defined(__ANDROID__)
+  const char* mujoco_gl = std::getenv("MUJOCO_GL");
+  if (mujoco_gl == nullptr) {
+    return false;
+  }
+
+  std::string value(mujoco_gl);
+  std::transform(value.begin(), value.end(), value.begin(),
+                 [](unsigned char c) { return std::tolower(c); });
+
+  return value == "egl" || value == "osmesa" || value == "glx" ||
+         value == "glfw" || value == "enable" || value == "enabled" ||
+         value == "on" || value == "true" || value == "1";
+#else
+  return false;
+#endif
+}
 
 static filament::Engine::Backend ResolveBackend(int graphics_api) {
 #if defined(__EMSCRIPTEN__)
@@ -34,7 +57,10 @@ static filament::Engine::Backend ResolveBackend(int graphics_api) {
 
   switch (graphics_api) {
     case mjGFX_DEFAULT:
-      // Use the default based on the platform above.
+      // Respect MUJOCO_GL on Linux for headless / explicit OpenGL selection.
+      if (PreferOpenGlFromEnv()) {
+        backend = filament::Engine::Backend::OPENGL;
+      }
       break;
     case mjGFX_OPENGL:
       backend = filament::Engine::Backend::OPENGL;

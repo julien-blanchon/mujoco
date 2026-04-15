@@ -164,6 +164,7 @@ jobs:
       working-directory: python
       env:
         TMPDIR: ${{ matrix.tmpdir }}
+        MUJOCO_PATH: ${{ matrix.tmpdir }}/mujoco_install
       run: bash ../.github/workflows/build_steps.sh make_python_sdist
 
     - name: Build Python wheel
