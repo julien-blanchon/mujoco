@@ -75,6 +75,11 @@ target_include_directories(${MUJOCO_FILAMENT_TARGET_NAME}
 )
 
 include(third_party_deps/filament)
+# Fetch SDL2 before dear_imgui so the SDL2 backend target can be created.
+# Filament skips SDL2 (FILAMENT_SKIP_SDL2=ON), but Studio needs it.
+if(MUJOCO_BUILD_STUDIO)
+  include(third_party_deps/sdl2)
+endif()
 include(third_party_deps/dear_imgui)
 target_link_libraries(${MUJOCO_FILAMENT_TARGET_NAME}
     dear_imgui
