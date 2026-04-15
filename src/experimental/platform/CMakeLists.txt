@@ -103,7 +103,7 @@ target_link_libraries(${MUJOCO_PLATFORM_TARGET_NAME}
     implot
     mujoco::filament
     webp
-    SDL2::SDL2-static
+    $<IF:$<TARGET_EXISTS:SDL2::SDL2-static>,SDL2::SDL2-static,sdl2>
     ${MUJOCO_PLATFORM_RENDER_DEPS}
 )
 

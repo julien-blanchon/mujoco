@@ -33,7 +33,15 @@ target_sources(dear_imgui
 # assumes that SDL2 is pulled in _before_ dear_imgui, but that seems fragile.
 # For now, we'll just assume SDL2 is available as dear_imgui is only being used
 # in contexts which depend on SDL2.
+# Check for SDL2 from either system install (SDL2::SDL2-static) or
+# Filament's bundled build (sdl2 target).
 if(TARGET SDL2::SDL2-static)
+  set(_SDL2_TARGET SDL2::SDL2-static)
+elseif(TARGET sdl2)
+  set(_SDL2_TARGET sdl2)
+endif()
+
+if(_SDL2_TARGET)
   add_library(dear_imgui_SDL2 STATIC)
   target_include_directories(dear_imgui_SDL2
     PUBLIC
@@ -44,7 +52,7 @@ if(TARGET SDL2::SDL2-static)
       ${dear_imgui_SOURCE_DIR}/backends/imgui_impl_sdl2.cpp
   )
   target_link_libraries(dear_imgui_SDL2
-    SDL2::SDL2-static
+    ${_SDL2_TARGET}
   )
 endif()
 

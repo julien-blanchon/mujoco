@@ -74,8 +74,8 @@ target_include_directories(${MUJOCO_FILAMENT_TARGET_NAME}
         ${PROJECT_SOURCE_DIR}/src
 )
 
-include(third_party_deps/dear_imgui)
 include(third_party_deps/filament)
+include(third_party_deps/dear_imgui)
 target_link_libraries(${MUJOCO_FILAMENT_TARGET_NAME}
     dear_imgui
     filament
