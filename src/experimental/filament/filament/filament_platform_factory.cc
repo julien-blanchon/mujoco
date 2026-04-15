@@ -27,7 +27,9 @@ static filament::Engine::Backend ResolveBackend(int graphics_api) {
 #if defined(__EMSCRIPTEN__)
   filament::Engine::Backend backend = filament::Engine::Backend::OPENGL;
 #else
-  filament::Engine::Backend backend = filament::Engine::Backend::VULKAN;
+  // Use DEFAULT to let Filament pick the best backend per platform
+  // (Metal on macOS/iOS, Vulkan on Linux/Windows).
+  filament::Engine::Backend backend = filament::Engine::Backend::DEFAULT;
 #endif
 
   switch (graphics_api) {
