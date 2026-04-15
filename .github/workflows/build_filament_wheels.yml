@@ -1,7 +1,8 @@
 # Build Python wheels with experimental filament rendering support.
-# Builds for Linux x86_64, macOS arm64, and Windows x86_64,
-# Python 3.10-3.13, then creates a GitHub release.
-# Note: macOS x86_64 excluded (no free Intel macOS runners available).
+# Builds for Linux x86_64 and macOS arm64, Python 3.10-3.13,
+# then creates a GitHub release.
+# Note: Windows excluded (upstream MSVC linker bug with anonymous structs),
+# macOS x86_64 excluded (no free Intel macOS runners available).
 
 name: build-filament-wheels
 
@@ -84,36 +85,6 @@ jobs:
               -DCMAKE_CXX_FLAGS="-Wno-error=deprecated-declarations"
             tmpdir: "/tmp"
 
-          # Windows
-          - os: windows-2025
-            label: windows-x86_64
-            python-version: "3.10"
-            cmake_args: >-
-              -DCMAKE_SYSTEM_VERSION="10.0.26100.0"
-            cmake_build_args: "-- -m"
-            tmpdir: "C:/Temp"
-          - os: windows-2025
-            label: windows-x86_64
-            python-version: "3.11"
-            cmake_args: >-
-              -DCMAKE_SYSTEM_VERSION="10.0.26100.0"
-            cmake_build_args: "-- -m"
-            tmpdir: "C:/Temp"
-          - os: windows-2025
-            label: windows-x86_64
-            python-version: "3.12"
-            cmake_args: >-
-              -DCMAKE_SYSTEM_VERSION="10.0.26100.0"
-            cmake_build_args: "-- -m"
-            tmpdir: "C:/Temp"
-          - os: windows-2025
-            label: windows-x86_64
-            python-version: "3.13"
-            cmake_args: >-
-              -DCMAKE_SYSTEM_VERSION="10.0.26100.0"
-            cmake_build_args: "-- -m"
-            tmpdir: "C:/Temp"
-
     name: "${{ matrix.label }}-py${{ matrix.python-version }}"
     runs-on: ${{ matrix.os }}
 
@@ -142,24 +113,11 @@ jobs:
       with:
         python-version: "${{ matrix.python-version }}"
 
-    - name: Prepare Python (POSIX)
-      if: runner.os != 'Windows'
+    - name: Prepare Python
       shell: bash
       env:
         TMPDIR: ${{ matrix.tmpdir }}
       run: bash ./.github/workflows/build_steps.sh prepare_python
-
-    - name: Prepare Python (Windows)
-      if: runner.os == 'Windows'
-      shell: bash
-      env:
-        TMPDIR: ${{ matrix.tmpdir }}
-      run: |
-        repo="${PWD}"
-        cd "$(cygpath "${TMPDIR}")"
-        python -m venv venv
-        source venv/Scripts/activate
-        python -m pip install --upgrade --require-hashes -r "${repo}/python/build_requirements.txt"
 
     # Build core MuJoCo with filament support (mirrors configure_studio flags
     # which properly pull in SDL2 via the platform target)
@@ -187,28 +145,14 @@ jobs:
     - name: Build MuJoCo
       shell: bash
       working-directory: build
-      env:
-        CMAKE_BUILD_ARGS: ${{ matrix.cmake_build_args }}
-      run: cmake --build . --config=Release ${CMAKE_BUILD_ARGS}
-
-    - name: Copy VC runtime DLLs (Windows workaround)
-      if: runner.os == 'Windows'
-      working-directory: build
-      shell: powershell
-      run: |
-        Copy-Item (Join-Path `
-          ((Get-ChildItem -Directory `
-              -Path "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Redist\MSVC\14.*" |
-            Sort -Descending | Select-Object -First 1).FullName
-          ) 'x64\Microsoft.VC143.CRT\*.dll') "bin\Release"
+      run: cmake --build . --config=Release
 
     - name: Install MuJoCo
       shell: bash
       working-directory: build
       run: cmake --install . --config=Release
 
-    - name: Copy plugins (POSIX)
-      if: runner.os != 'Windows'
+    - name: Copy plugins
       shell: bash
       working-directory: build
       env:
@@ -220,30 +164,12 @@ jobs:
         cp lib/libsensor.* ${TMPDIR}/mujoco_install/mujoco_plugin || true
         cp lib/libsdf_plugin.* ${TMPDIR}/mujoco_install/mujoco_plugin || true
 
-    - name: Copy plugins (Windows)
-      if: runner.os == 'Windows'
-      shell: bash
-      working-directory: build
-      env:
-        TMPDIR: ${{ matrix.tmpdir }}
-      run: |
-        mkdir -p ${TMPDIR}/mujoco_install/mujoco_plugin
-        cp bin/Release/actuator.dll ${TMPDIR}/mujoco_install/mujoco_plugin || true
-        cp bin/Release/elasticity.dll ${TMPDIR}/mujoco_install/mujoco_plugin || true
-        cp bin/Release/sensor.dll ${TMPDIR}/mujoco_install/mujoco_plugin || true
-
     - name: Make Python sdist
       shell: bash
       working-directory: python
       env:
         TMPDIR: ${{ matrix.tmpdir }}
-      run: |
-        if [[ "$RUNNER_OS" == "Windows" ]]; then
-          source "$(cygpath "${TMPDIR}")/venv/Scripts/activate"
-        else
-          source ${TMPDIR}/venv/bin/activate
-        fi
-        ./make_sdist.sh
+      run: bash ../.github/workflows/build_steps.sh make_python_sdist
 
     - name: Build Python wheel
       shell: bash
@@ -252,11 +178,7 @@ jobs:
         TMPDIR: ${{ matrix.tmpdir }}
         CMAKE_ARGS: ${{ matrix.cmake_args }}
       run: |
-        if [[ "$RUNNER_OS" == "Windows" ]]; then
-          source "$(cygpath "${TMPDIR}")/venv/Scripts/activate"
-        else
-          source ${TMPDIR}/venv/bin/activate
-        fi
+        source ${TMPDIR}/venv/bin/activate
         MUJOCO_PATH="${TMPDIR}/mujoco_install" \
         MUJOCO_PLUGIN_PATH="${TMPDIR}/mujoco_install/mujoco_plugin" \
         MUJOCO_CMAKE_ARGS="-DCMAKE_INTERPROCEDURAL_OPTIMIZATION:BOOL=OFF ${CMAKE_ARGS}" \
@@ -285,14 +207,6 @@ jobs:
         pip install delocate
         delocate-wheel -v -w wheelhouse mujoco-*.whl || \
           (mkdir -p wheelhouse && cp mujoco-*.whl wheelhouse/)
-
-    - name: Collect wheel (Windows)
-      if: runner.os == 'Windows'
-      shell: bash
-      working-directory: python/dist
-      run: |
-        mkdir -p wheelhouse
-        cp mujoco-*.whl wheelhouse/
 
     - name: Upload wheel artifact
       uses: actions/upload-artifact@v4
@@ -343,7 +257,6 @@ jobs:
           ## Platforms
           - Linux x86_64 (Ubuntu 24.04)
           - macOS arm64
-          - Windows x86_64
 
           ## Python versions
           - 3.10, 3.11, 3.12, 3.13
