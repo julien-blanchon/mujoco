@@ -1,0 +1,142 @@
+# Windows-only build for experimental filament rendering.
+# Single variant (Python 3.12) to iterate on Windows support.
+
+name: build-filament-windows
+
+on:
+  push:
+    branches:
+      - exp-filament-windows
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-wheel:
+    name: "windows-x64-py3.12"
+    runs-on: windows-2025
+
+    env:
+      TMPDIR: "C:/Temp"
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Setup MSVC
+      uses: ilammy/msvc-dev-cmd@v1
+
+    - uses: actions/setup-python@v5
+      with:
+        python-version: "3.12"
+
+    - name: Install Ninja
+      run: choco install ninja -y
+
+    - name: Prepare Python
+      shell: bash
+      env:
+        TMPDIR: "C:/Temp"
+      run: bash ./.github/workflows/build_steps.sh prepare_python
+
+    - name: Configure MuJoCo (with filament)
+      shell: bash
+      run: |
+        cmake -B build \
+          -G Ninja \
+          -DCMAKE_BUILD_TYPE:STRING=Release \
+          -DCMAKE_SYSTEM_VERSION="10.0.26100.0" \
+          -DCMAKE_INTERPROCEDURAL_OPTIMIZATION:BOOL=OFF \
+          -DCMAKE_INSTALL_PREFIX:STRING="C:/Temp/mujoco_install" \
+          -DUSE_STATIC_LIBCXX=OFF \
+          -DBUILD_SHARED_LIBS=OFF \
+          -DMUJOCO_BUILD_EXAMPLES=OFF \
+          -DMUJOCO_BUILD_SIMULATE=OFF \
+          -DMUJOCO_BUILD_STUDIO=OFF \
+          -DMUJOCO_BUILD_TESTS=OFF \
+          -DMUJOCO_TEST_PYTHON_UTIL=OFF \
+          -DMUJOCO_WITH_USD=OFF \
+          -DMUJOCO_USE_FILAMENT=ON \
+          -DMUJOCO_USE_FILAMENT_MJR_COMPAT=ON
+
+    - name: Upload CMake Configure Log
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: cmake-configure-log
+        path: build/CMakeFiles/CMakeConfigureLog.yaml
+        retention-days: 5
+
+    - name: Build MuJoCo
+      shell: bash
+      working-directory: build
+      run: cmake --build . --config=Release
+
+    - name: Install MuJoCo
+      shell: bash
+      working-directory: build
+      run: cmake --install . --config=Release
+
+    - name: Copy plugins
+      shell: bash
+      run: |
+        mkdir -p C:/Temp/mujoco_install/mujoco_plugin
+        cp build/lib/actuator.dll C:/Temp/mujoco_install/mujoco_plugin/ || true
+        cp build/lib/elasticity.dll C:/Temp/mujoco_install/mujoco_plugin/ || true
+        cp build/lib/sensor.dll C:/Temp/mujoco_install/mujoco_plugin/ || true
+        cp build/lib/sdf_plugin.dll C:/Temp/mujoco_install/mujoco_plugin/ || true
+        # Ninja puts DLLs in lib/ not bin/Release/
+        cp build/bin/Release/actuator.dll C:/Temp/mujoco_install/mujoco_plugin/ || true
+        cp build/bin/Release/elasticity.dll C:/Temp/mujoco_install/mujoco_plugin/ || true
+        cp build/bin/Release/sensor.dll C:/Temp/mujoco_install/mujoco_plugin/ || true
+        echo "Plugin copy done (some may be missing, that's OK)"
+
+    - name: Make Python sdist
+      shell: bash
+      working-directory: python
+      env:
+        TMPDIR: "C:/Temp"
+      run: bash ../.github/workflows/build_steps.sh make_python_sdist
+
+    - name: Build Python wheel
+      shell: bash
+      working-directory: python/dist
+      run: |
+        source C:/Temp/venv/bin/activate
+        MUJOCO_PATH="C:/Temp/mujoco_install" \
+        MUJOCO_PLUGIN_PATH="C:/Temp/mujoco_install/mujoco_plugin" \
+        MUJOCO_CMAKE_ARGS="-G Ninja -DCMAKE_INTERPROCEDURAL_OPTIMIZATION:BOOL=OFF -DMUJOCO_USE_FILAMENT=ON -DMUJOCO_USE_FILAMENT_MJR_COMPAT=ON" \
+        pip wheel -v --no-deps mujoco-*.tar.gz
+
+    - name: Repair wheel (Windows)
+      shell: bash
+      run: |
+        source C:/Temp/venv/bin/activate
+        pip install delvewheel
+        cd python/dist
+        mkdir -p wheelhouse
+        # Try delvewheel repair; fall back to raw copy
+        for whl in mujoco-*.whl; do
+          delvewheel repair -v -w wheelhouse "$whl" || cp "$whl" wheelhouse/
+        done
+
+    - name: Quick smoke test
+      shell: bash
+      run: |
+        source C:/Temp/venv/bin/activate
+        pip install python/dist/wheelhouse/mujoco-*.whl
+        python -c "
+import mujoco
+print('MuJoCo version:', mujoco.__version__)
+import numpy as np
+m = mujoco.MjModel.from_xml_string('<mujoco><worldbody><geom type=\"sphere\" size=\"0.5\"/></worldbody></mujoco>')
+d = mujoco.MjData(m)
+mujoco.mj_forward(m, d)
+print('Simulation OK')
+"
+
+    - name: Upload wheel artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: wheel-windows-x64-py3.12
+        path: python/dist/wheelhouse/*.whl
