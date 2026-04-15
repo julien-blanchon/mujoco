@@ -61,28 +61,28 @@ jobs:
             python-version: "3.10"
             cmake_args: >-
               -G Ninja
-              -DCMAKE_CXX_FLAGS="-Wno-error=deprecated-declarations"
+              -DCMAKE_CXX_FLAGS="-Wno-error=deprecated-declarations -Wno-nullability-extension -Wno-gnu-anonymous-struct -Wno-nested-anon-types"
             tmpdir: "/tmp"
           - os: macos-15
             label: macos-arm64
             python-version: "3.11"
             cmake_args: >-
               -G Ninja
-              -DCMAKE_CXX_FLAGS="-Wno-error=deprecated-declarations"
+              -DCMAKE_CXX_FLAGS="-Wno-error=deprecated-declarations -Wno-nullability-extension -Wno-gnu-anonymous-struct -Wno-nested-anon-types"
             tmpdir: "/tmp"
           - os: macos-15
             label: macos-arm64
             python-version: "3.12"
             cmake_args: >-
               -G Ninja
-              -DCMAKE_CXX_FLAGS="-Wno-error=deprecated-declarations"
+              -DCMAKE_CXX_FLAGS="-Wno-error=deprecated-declarations -Wno-nullability-extension -Wno-gnu-anonymous-struct -Wno-nested-anon-types"
             tmpdir: "/tmp"
           - os: macos-15
             label: macos-arm64
             python-version: "3.13"
             cmake_args: >-
               -G Ninja
-              -DCMAKE_CXX_FLAGS="-Wno-error=deprecated-declarations"
+              -DCMAKE_CXX_FLAGS="-Wno-error=deprecated-declarations -Wno-nullability-extension -Wno-gnu-anonymous-struct -Wno-nested-anon-types"
             tmpdir: "/tmp"
 
     name: "${{ matrix.label }}-py${{ matrix.python-version }}"
