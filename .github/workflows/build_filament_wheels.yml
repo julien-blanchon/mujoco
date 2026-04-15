@@ -119,8 +119,10 @@ jobs:
         TMPDIR: ${{ matrix.tmpdir }}
       run: bash ./.github/workflows/build_steps.sh prepare_python
 
-    # Build core MuJoCo with filament support (mirrors configure_studio flags
-    # which properly pull in SDL2 via the platform target)
+    # Build core MuJoCo with filament support.
+    # MUJOCO_USE_FILAMENT enables filament rendering.
+    # MUJOCO_USE_FILAMENT_MJR_COMPAT replaces the OpenGL mjr_* API with a
+    # filament implementation, enabling offscreen filament rendering.
     - name: Configure MuJoCo (with filament)
       shell: bash
       env:
@@ -140,6 +142,7 @@ jobs:
           -DMUJOCO_TEST_PYTHON_UTIL=OFF \
           -DMUJOCO_WITH_USD=OFF \
           -DMUJOCO_USE_FILAMENT=ON \
+          -DMUJOCO_USE_FILAMENT_MJR_COMPAT=ON \
           ${CMAKE_ARGS}
 
     - name: Build MuJoCo
@@ -181,7 +184,7 @@ jobs:
         source ${TMPDIR}/venv/bin/activate
         MUJOCO_PATH="${TMPDIR}/mujoco_install" \
         MUJOCO_PLUGIN_PATH="${TMPDIR}/mujoco_install/mujoco_plugin" \
-        MUJOCO_CMAKE_ARGS="-DCMAKE_INTERPROCEDURAL_OPTIMIZATION:BOOL=OFF ${CMAKE_ARGS}" \
+        MUJOCO_CMAKE_ARGS="-DCMAKE_INTERPROCEDURAL_OPTIMIZATION:BOOL=OFF -DMUJOCO_USE_FILAMENT=ON -DMUJOCO_USE_FILAMENT_MJR_COMPAT=ON ${CMAKE_ARGS}" \
         pip wheel -v --no-deps mujoco-*.tar.gz
 
     - name: Repair wheel (Linux)
@@ -245,7 +248,8 @@ jobs:
         body: |
           Experimental build of MuJoCo ${{ steps.version.outputs.version }} with filament rendering support enabled.
 
-          Built with `-DMUJOCO_USE_FILAMENT=ON`.
+          Built with `-DMUJOCO_USE_FILAMENT=ON -DMUJOCO_USE_FILAMENT_MJR_COMPAT=ON`.
+          The mjr_* API uses Filament instead of OpenGL, enabling offscreen PBR rendering.
 
           ## Install
 
