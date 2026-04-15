@@ -125,15 +125,8 @@ jobs:
       run: |
         source C:/Temp/venv/bin/activate
         pip install python/dist/wheelhouse/mujoco-*.whl
-        python -c "
-import mujoco
-print('MuJoCo version:', mujoco.__version__)
-import numpy as np
-m = mujoco.MjModel.from_xml_string('<mujoco><worldbody><geom type=\"sphere\" size=\"0.5\"/></worldbody></mujoco>')
-d = mujoco.MjData(m)
-mujoco.mj_forward(m, d)
-print('Simulation OK')
-"
+        python -c "import mujoco; print('MuJoCo version:', mujoco.__version__)"
+        python -c "import mujoco, numpy as np; m = mujoco.MjModel.from_xml_string('<mujoco><worldbody><geom type=\"sphere\" size=\"0.5\"/></worldbody></mujoco>'); d = mujoco.MjData(m); mujoco.mj_forward(m, d); print('Simulation OK')"
 
     - name: Upload wheel artifact
       uses: actions/upload-artifact@v4
