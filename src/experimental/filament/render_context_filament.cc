@@ -109,7 +109,10 @@ static void EnsureFilamentResourceProvider() {
   };
 
   provider.prefix = "filament";
-  mjp_registerResourceProvider(&provider);
+  int slot = mjp_registerResourceProvider(&provider);
+  if (slot < 0) {
+    mju_error("Failed to register filament resource provider (slot=%d)", slot);
+  }
 }
 
 void mjrf_makeContext(const mjModel* m, mjrContext* con, int fontscale) {
