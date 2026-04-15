@@ -162,6 +162,13 @@ target_link_libraries(
           tinyxml2
 )
 
+# When MJR compat is enabled, link the filament rendering library into
+# libmujoco so the mjr_* symbols are available to Python bindings and
+# other consumers of the shared library.
+if(MUJOCO_USE_FILAMENT_MJR_COMPAT)
+  target_link_libraries(mujoco PRIVATE mujoco_filament)
+endif()
+
 set_target_properties(
   mujoco PROPERTIES VERSION "${mujoco_VERSION}" PUBLIC_HEADER "${MUJOCO_HEADERS}"
 )
