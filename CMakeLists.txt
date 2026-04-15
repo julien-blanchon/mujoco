@@ -124,6 +124,11 @@ endif()
 
 if(MUJOCO_USE_FILAMENT AND NOT EMSCRIPTEN)
   add_subdirectory(src/experimental/filament)
+  # Filament's backend target uses -Werror which conflicts with deprecated
+  # Metal APIs on newer macOS SDKs. Suppress after Filament sets its flags.
+  if(TARGET backend AND APPLE)
+    target_compile_options(backend PRIVATE -Wno-error=deprecated-declarations)
+  endif()
 endif()
 
 if(EMSCRIPTEN)
