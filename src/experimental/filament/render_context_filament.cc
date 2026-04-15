@@ -22,6 +22,7 @@
 #include <vector>
 
 #if defined(_WIN32) || defined(__CYGWIN__)
+#define NOMINMAX
 #include <windows.h>
 #else
 #include <dlfcn.h>
@@ -46,27 +47,6 @@ static void CheckFilamentContext() {
   }
 }
 
-extern "C" {
-
-void mjrf_defaultFilamentConfig(mjrFilamentConfig* config) {
-  memset(config, 0, sizeof(mjrFilamentConfig));
-}
-
-void mjrf_makeFilamentContext(const mjModel* m, mjrContext* con,
-                             const mjrFilamentConfig* config) {
-  // TODO: Support multiple contexts and multiple threads. For now, we'll just
-  // assume a single, global context.
-  if (g_filament_context != nullptr) {
-    mju_error("Context already exists!");
-  }
-  g_filament_context = new mujoco::FilamentContext(config);
-  g_filament_context->Init(m);
-}
-
-void mjrf_defaultContext(mjrContext* con) {
-  memset(con, 0, sizeof(mjrContext));
-}
-
 // File-based resource for serving filament .filamat assets from disk.
 struct FilamentFileResource {
   std::vector<char> data;
@@ -81,7 +61,7 @@ static bool g_filament_provider_registered = false;
 static std::string GetLibraryAssetsDir() {
   // Use the address of an exported mujoco function to locate the library.
   // dladdr / GetModuleHandleEx resolve the shared object containing this symbol.
-  void* anchor = reinterpret_cast<void*>(&mj_forward);
+  void* anchor = reinterpret_cast<void*>(reinterpret_cast<uintptr_t>(&mj_forward));
 
 #if defined(_WIN32) || defined(__CYGWIN__)
   HMODULE hModule = NULL;
@@ -93,7 +73,7 @@ static std::string GetLibraryAssetsDir() {
       std::string lib_path(path);
       size_t last_slash = lib_path.find_last_of("\\/");
       if (last_slash != std::string::npos) {
-        return lib_path.substr(0, last_slash + 1) + "assets/";
+        return lib_path.substr(0, last_slash + 1) + "assets\\";
       }
     }
   }
@@ -166,6 +146,25 @@ static void EnsureFilamentResourceProvider() {
   if (slot < 0) {
     mju_error("Failed to register filament resource provider (slot=%d)", slot);
   }
+}
+
+extern "C" {
+
+void mjrf_defaultFilamentConfig(mjrFilamentConfig* config) {
+  memset(config, 0, sizeof(mjrFilamentConfig));
+}
+
+void mjrf_makeFilamentContext(const mjModel* m, mjrContext* con,
+                             const mjrFilamentConfig* config) {
+  if (g_filament_context != nullptr) {
+    mju_error("Context already exists!");
+  }
+  g_filament_context = new mujoco::FilamentContext(config);
+  g_filament_context->Init(m);
+}
+
+void mjrf_defaultContext(mjrContext* con) {
+  memset(con, 0, sizeof(mjrContext));
 }
 
 void mjrf_makeContext(const mjModel* m, mjrContext* con, int fontscale) {
