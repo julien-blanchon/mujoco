@@ -88,6 +88,11 @@ target_link_libraries(${MUJOCO_FILAMENT_TARGET_NAME}
     ktxreader   # provided by filament
 )
 
+# dladdr is used to locate assets relative to the library at runtime.
+if(CMAKE_DL_LIBS)
+  target_link_libraries(${MUJOCO_FILAMENT_TARGET_NAME} ${CMAKE_DL_LIBS})
+endif()
+
 add_library(mujoco::filament ALIAS ${MUJOCO_FILAMENT_TARGET_NAME})
 
 # The "mujoco::filament" library needs access to some assets (e.g. filament
