@@ -107,9 +107,11 @@ jobs:
       working-directory: python/dist
       run: |
         source C:/Temp/venv/bin/activate
+        # The bindings cmake only builds pybind11 wrappers and links against
+        # the pre-built libmujoco. Filament flags are not needed here.
         MUJOCO_PATH="C:/Temp/mujoco_install" \
         MUJOCO_PLUGIN_PATH="C:/Temp/mujoco_install/mujoco_plugin" \
-        MUJOCO_CMAKE_ARGS="-G Ninja -DCMAKE_INTERPROCEDURAL_OPTIMIZATION:BOOL=OFF -DMUJOCO_USE_FILAMENT=ON -DMUJOCO_USE_FILAMENT_MJR_COMPAT=ON" \
+        MUJOCO_CMAKE_ARGS="-G Ninja -DCMAKE_INTERPROCEDURAL_OPTIMIZATION:BOOL=OFF" \
         pip wheel -v --no-deps mujoco-*.tar.gz
 
     - name: Repair wheel (Windows)
