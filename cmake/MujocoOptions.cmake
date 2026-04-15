@@ -103,6 +103,9 @@ if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU" OR (CMAKE_CXX_COMPILER_ID MATCHES "Clang
         -Wno-nullability-extension
         -Wno-gnu-anonymous-struct
         -Wno-nested-anon-types
+        -Wno-deprecated-declarations
+        -Wno-format-pedantic
+        -Wno-unused-private-field
     )
   endif()
   if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
@@ -113,7 +116,7 @@ if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU" OR (CMAKE_CXX_COMPILER_ID MATCHES "Clang
   endif()
 endif()
 
-if(NOT CMAKE_INTERPROCEDURAL_OPTIMIZATION AND (CMAKE_BUILD_TYPE AND NOT CMAKE_BUILD_TYPE STREQUAL "Debug"))
+if(NOT CMAKE_INTERPROCEDURAL_OPTIMIZATION AND NOT MUJOCO_USE_FILAMENT_MJR_COMPAT AND (CMAKE_BUILD_TYPE AND NOT CMAKE_BUILD_TYPE STREQUAL "Debug"))
   set(CMAKE_INTERPROCEDURAL_OPTIMIZATION ON)
 endif()
 

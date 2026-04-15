@@ -212,12 +212,25 @@ void FilamentContext::DestroyRenderTargets() {
 static void ReadColorPixels(filament::Renderer* renderer,
                             RenderTarget* target, mjrRect viewport,
                             unsigned char* buffer, size_t num_bytes) {
+  // Metal backend requires RGBA for readPixels. Read as RGBA into a
+  // temporary buffer, then strip alpha to produce RGB output.
+  const size_t npixels = viewport.width * viewport.height;
+  const size_t rgba_bytes = npixels * 4;
+  std::vector<unsigned char> rgba(rgba_bytes);
   filament::backend::PixelBufferDescriptor descriptor(
-      buffer, num_bytes, filament::backend::PixelDataFormat::RGB,
+      rgba.data(), rgba_bytes, filament::backend::PixelDataFormat::RGBA,
       filament::backend::PixelDataType::UBYTE);
   renderer->readPixels(target->GetFilamentRenderTarget(), viewport.left,
                        viewport.bottom, viewport.width, viewport.height,
                        std::move(descriptor));
+  // Filament readPixels is async; we need to flush to get the data.
+  renderer->getEngine()->flushAndWait();
+  // Convert RGBA -> RGB
+  for (size_t i = 0; i < npixels; ++i) {
+    buffer[i * 3 + 0] = rgba[i * 4 + 0];
+    buffer[i * 3 + 1] = rgba[i * 4 + 1];
+    buffer[i * 3 + 2] = rgba[i * 4 + 2];
+  }
 }
 
 static void ReadDepthPixels(filament::Renderer* renderer,
