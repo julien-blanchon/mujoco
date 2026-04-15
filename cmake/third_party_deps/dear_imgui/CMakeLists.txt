@@ -33,7 +33,7 @@ target_sources(dear_imgui
 # assumes that SDL2 is pulled in _before_ dear_imgui, but that seems fragile.
 # For now, we'll just assume SDL2 is available as dear_imgui is only being used
 # in contexts which depend on SDL2.
-#if(TARGET SDL2)
+if(TARGET SDL2::SDL2-static)
   add_library(dear_imgui_SDL2 STATIC)
   target_include_directories(dear_imgui_SDL2
     PUBLIC
@@ -46,7 +46,7 @@ target_sources(dear_imgui
   target_link_libraries(dear_imgui_SDL2
     SDL2::SDL2-static
   )
-#endif()
+endif()
 
 # OpenGL3 backend
 add_library(dear_imgui_OpenGL3 STATIC)

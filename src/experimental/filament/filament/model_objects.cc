@@ -415,7 +415,7 @@ static std::span<const int> GetIndices(const mjModel* model,
 static void UpdateMeshData(MeshData* data, const mjModel* model, int id,
                            MeshType mesh_type) {
   if (!IsValidIndex(model, id, mesh_type)) {
-    mju_error("Invalid index %d for type %d", id, mesh_type);
+    mju_error("Invalid index %d for type %d", id, static_cast<int>(mesh_type));
     return;
   }
 
