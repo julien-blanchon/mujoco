@@ -66,7 +66,7 @@ ObjectManager::ObjectManager(filament::Engine* engine)
     if (asset.payload == nullptr || asset.size <= 0) {
       mju_error("Failed to load filament material asset '%.*s'. "
                 "Make sure the 'assets/' directory with .filamat files "
-                "is accessible from the working directory.",
+                "is next to the mujoco library or in the working directory.",
                 static_cast<int>(filename.size()), filename.data());
     }
     filament::Material::Builder material_builder;
