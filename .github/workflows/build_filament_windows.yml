@@ -33,11 +33,18 @@ jobs:
     - name: Install Ninja
       run: choco install ninja -y
 
-    - name: Prepare Python
+    - name: Prepare Python venv
       shell: bash
-      env:
-        TMPDIR: "C:/Temp"
-      run: bash ./.github/workflows/build_steps.sh prepare_python
+      run: |
+        cd C:/Temp
+        python -m venv venv
+        # On Windows, activate lives under Scripts/
+        # Create bin/activate symlink so bash scripts work uniformly
+        mkdir -p venv/bin
+        ln -sf ../Scripts/activate venv/bin/activate
+        source venv/bin/activate
+        pip install --upgrade pip setuptools wheel build
+        pip install --upgrade --require-hashes -r "$GITHUB_WORKSPACE/python/build_requirements.txt"
 
     - name: Configure MuJoCo (with filament)
       shell: bash
@@ -81,22 +88,19 @@ jobs:
       shell: bash
       run: |
         mkdir -p C:/Temp/mujoco_install/mujoco_plugin
-        cp build/lib/actuator.dll C:/Temp/mujoco_install/mujoco_plugin/ || true
-        cp build/lib/elasticity.dll C:/Temp/mujoco_install/mujoco_plugin/ || true
-        cp build/lib/sensor.dll C:/Temp/mujoco_install/mujoco_plugin/ || true
-        cp build/lib/sdf_plugin.dll C:/Temp/mujoco_install/mujoco_plugin/ || true
-        # Ninja puts DLLs in lib/ not bin/Release/
-        cp build/bin/Release/actuator.dll C:/Temp/mujoco_install/mujoco_plugin/ || true
-        cp build/bin/Release/elasticity.dll C:/Temp/mujoco_install/mujoco_plugin/ || true
-        cp build/bin/Release/sensor.dll C:/Temp/mujoco_install/mujoco_plugin/ || true
-        echo "Plugin copy done (some may be missing, that's OK)"
+        # Ninja puts outputs in lib/ directly
+        cp build/lib/actuator.dll C:/Temp/mujoco_install/mujoco_plugin/ 2>/dev/null || true
+        cp build/lib/elasticity.dll C:/Temp/mujoco_install/mujoco_plugin/ 2>/dev/null || true
+        cp build/lib/sensor.dll C:/Temp/mujoco_install/mujoco_plugin/ 2>/dev/null || true
+        cp build/lib/sdf_plugin.dll C:/Temp/mujoco_install/mujoco_plugin/ 2>/dev/null || true
+        echo "Plugin copy done"
 
     - name: Make Python sdist
       shell: bash
       working-directory: python
-      env:
-        TMPDIR: "C:/Temp"
-      run: bash ../.github/workflows/build_steps.sh make_python_sdist
+      run: |
+        source C:/Temp/venv/bin/activate
+        ./make_sdist.sh
 
     - name: Build Python wheel
       shell: bash
@@ -115,7 +119,6 @@ jobs:
         pip install delvewheel
         cd python/dist
         mkdir -p wheelhouse
-        # Try delvewheel repair; fall back to raw copy
         for whl in mujoco-*.whl; do
           delvewheel repair -v -w wheelhouse "$whl" || cp "$whl" wheelhouse/
         done
