@@ -43,8 +43,8 @@ jobs:
         mkdir -p venv/bin
         ln -sf ../Scripts/activate venv/bin/activate
         source venv/bin/activate
-        pip install --upgrade pip setuptools wheel build
-        pip install --upgrade --require-hashes -r "$GITHUB_WORKSPACE/python/build_requirements.txt"
+        python -m pip install --upgrade pip setuptools wheel build
+        python -m pip install --upgrade --require-hashes -r "$GITHUB_WORKSPACE/python/build_requirements.txt"
 
     - name: Configure MuJoCo (with filament)
       shell: bash
