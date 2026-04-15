@@ -16,6 +16,10 @@
 
 #include <cstdint>
 #include <cstring>
+#include <fstream>
+#include <string>
+#include <string_view>
+#include <vector>
 
 #include <mujoco/mjmodel.h>
 #include <mujoco/mjrender.h>
@@ -57,8 +61,60 @@ void mjrf_defaultContext(mjrContext* con) {
   memset(con, 0, sizeof(mjrContext));
 }
 
+// File-based resource for serving filament .filamat assets from disk.
+struct FilamentFileResource {
+  std::vector<char> data;
+  int size = 0;
+};
+
+static bool g_filament_provider_registered = false;
+
+static void EnsureFilamentResourceProvider() {
+  if (g_filament_provider_registered) return;
+  g_filament_provider_registered = true;
+
+  static mjpResourceProvider provider;
+  mjp_defaultResourceProvider(&provider);
+
+  provider.open = [](mjResource* resource) -> int {
+    // Strip "filament:" prefix and resolve to "assets/<name>"
+    std::string_view name(resource->name);
+    auto pos = name.find(':');
+    std::string subpath = (pos != std::string_view::npos)
+        ? std::string(name.substr(pos + 1))
+        : std::string(name);
+    std::string path = "assets/" + subpath;
+
+    std::ifstream file(path, std::ios::binary | std::ios::ate);
+    if (!file.is_open()) {
+      return 0;
+    }
+    auto* fr = new FilamentFileResource();
+    fr->size = static_cast<int>(file.tellg());
+    fr->data.resize(fr->size);
+    file.seekg(0, std::ios::beg);
+    file.read(fr->data.data(), fr->size);
+    resource->data = fr;
+    return fr->size;
+  };
+  provider.read = [](mjResource* resource, const void** buffer) -> int {
+    auto* fr = static_cast<FilamentFileResource*>(resource->data);
+    if (!fr) return 0;
+    *buffer = fr->data.data();
+    return fr->size;
+  };
+  provider.close = [](mjResource* resource) {
+    delete static_cast<FilamentFileResource*>(resource->data);
+    resource->data = nullptr;
+  };
+
+  provider.prefix = "filament";
+  mjp_registerResourceProvider(&provider);
+}
+
 void mjrf_makeContext(const mjModel* m, mjrContext* con, int fontscale) {
   mjrf_freeContext(con);
+  EnsureFilamentResourceProvider();
   mjrFilamentConfig cfg;
   mjrf_defaultFilamentConfig(&cfg);
   cfg.width = m->vis.global.offwidth;

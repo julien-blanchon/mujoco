@@ -130,8 +130,7 @@ foreach(MATERIAL_FILE ${MATERIAL_FILES})
         OUTPUT ${OUTPUT_FILE}
         COMMAND ${MATC_EXECUTABLE}
             --platform=all
-            --api=vulkan
-            --api=opengl
+            --api=all
             --variant-filter skinning
             --optimize-size
             --output ${OUTPUT_FILE}
