@@ -96,6 +96,15 @@ if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU" OR (CMAKE_CXX_COMPILER_ID MATCHES "Clang
       -Wno-sign-compare
       -Wno-unknown-pragmas
   )
+  # Filament headers use extensions that trigger -Werror with Clang.
+  # Suppress these when filament code is compiled into the mujoco target.
+  if(MUJOCO_USE_FILAMENT_MJR_COMPAT)
+    list(APPEND EXTRA_COMPILE_OPTIONS
+        -Wno-nullability-extension
+        -Wno-gnu-anonymous-struct
+        -Wno-nested-anon-types
+    )
+  endif()
   if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
     # Set -Wimplicit-fallthrough=5 to only allow fallthrough annotation via __attribute__.
     set(EXTRA_COMPILE_OPTIONS ${EXTRA_COMPILE_OPTIONS} -Wimplicit-fallthrough=5

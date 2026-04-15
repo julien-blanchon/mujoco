@@ -121,16 +121,10 @@ jobs:
         TMPDIR: ${{ matrix.tmpdir }}
         CMAKE_ARGS: ${{ matrix.cmake_args }}
       run: |
-        # Suppress warnings from filament headers when compiled into mujoco target
-        FILAMENT_CXX_FLAGS=""
-        if [[ "$RUNNER_OS" == "macOS" ]]; then
-          FILAMENT_CXX_FLAGS="-Wno-error=deprecated-declarations -Wno-nullability-extension -Wno-gnu-anonymous-struct -Wno-nested-anon-types"
-        fi
         cmake -B build \
           -DCMAKE_BUILD_TYPE:STRING=Release \
           -DCMAKE_INTERPROCEDURAL_OPTIMIZATION:BOOL=OFF \
           -DCMAKE_INSTALL_PREFIX:STRING=${TMPDIR}/mujoco_install \
-          -DCMAKE_CXX_FLAGS="${FILAMENT_CXX_FLAGS}" \
           -DUSE_STATIC_LIBCXX=OFF \
           -DBUILD_SHARED_LIBS=OFF \
           -DMUJOCO_BUILD_EXAMPLES=OFF \
